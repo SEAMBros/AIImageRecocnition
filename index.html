@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEAM AI Image Classifier</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+  <style>
+    /* Animated Gradient Background */
+    body {
+      background: linear-gradient(-45deg, #ff9a9e, #fad0c4, #a1c4fd, #c2e9fb);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Glassmorphism Card */
+    .card {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(12px);
+      border-radius: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+      transition: transform 0.3s ease;
+    }
+    .card:hover {
+      transform: scale(1.02);
+    }
+
+    /* Drop-Zone Glow */
+    #drop-area {
+      transition: all 0.3s ease;
+    }
+    #drop-area:hover {
+      border-color: #6a5acd;
+      box-shadow: 0 0 20px rgba(106, 90, 205, 0.4);
+    }
+
+    /* Button Animation */
+    button {
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Predictions Fade-In */
+    #results li {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeInUp 0.5s ease forwards;
+    }
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header / Logos -->
+  <header class="flex items-center justify-center gap-8 mb-8">
+    <img src="seam-logo.png" alt="SEAM Logo" class="h-12" />
+    <img src="ea-logo.png" alt="EA Enterprises Logo" class="h-12" />
+    <img src="sm-logo.png" alt="SM Technologies Logo" class="h-12" />
+  </header>
+
+  <!-- Classifier Card -->
+  <div class="card p-8 max-w-lg w-full text-center">
+    <h1 class="text-3xl font-bold text-white mb-2">🌟 SEAM AI Image Classifier</h1>
+    <p class="text-white/90 mb-6">
+      Powered by <strong>EA Enterprises</strong> • Creative direction by <strong>SM Technologies</strong>
+    </p>
+
+    <!-- Drag & Drop Zone -->
+    <label id="drop-area" class="flex flex-col items-center justify-center border-2 border-dashed border-white/60 rounded-xl p-6 cursor-pointer">
+      <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleFile(this.files)" />
+      <span class="text-white/70">Click to upload or drag & drop</span>
+    </label>
+
+    <!-- Image Preview -->
+    <img id="preview" class="mt-6 rounded-lg shadow-md hidden mx-auto" width="224" alt="Uploaded preview" />
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="mt-6 hidden">
+      <div class="animate-spin rounded-full h-10 w-10 border-t-4 border-white border-solid mx-auto"></div>
+      <p class="text-white mt-2">Analyzing image...</p>
+    </div>
+
+    <!-- Prediction Results -->
+    <div id="results" class="mt-6 text-left hidden">
+      <h2 class="text-lg font-semibold text-white mb-2">Predictions:</h2>
+      <ul id="predList" class="space-y-1 text-white/90 text-sm"></ul>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-10 text-white/70 text-sm">
+    <p>&copy; 2025 SEAM Technology Enterprises • Built by EA Enterprises • Designed by SM Technologies</p>
+  </footer>
+
+  <script>
+    let model;
+
+    // Load MobileNet model on page load
+    window.onload = async () => {
+      model = await mobilenet.load();
+      console.log("Model loaded ✅");
+    };
+
+    // Drag & Drop handling
+    const dropArea = document.getElementById("drop-area");
+    dropArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropArea.classList.add("bg-white/10", "border-indigo-400");
+    });
+    dropArea.addEventListener("dragleave", () => {
+      dropArea.classList.remove("bg-white/10", "border-indigo-400");
+    });
+    dropArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropArea.classList.remove("bg-white/10", "border-indigo-400");
+      handleFile(e.dataTransfer.files);
+    });
+
+    // Handle image input
+    async function handleFile(files) {
+      if (!files.length) return;
+      const file = files[0];
+      const img = document.getElementById("preview");
+      const loading = document.getElementById("loading");
+      const results = document.getElementById("results");
+      const predList = document.getElementById("predList");
+
+      img.src = URL.createObjectURL(file);
+      img.classList.remove("hidden");
+
+      loading.classList.remove("hidden");
+      results.classList.add("hidden");
+
+      img.onload = async () => {
+        URL.revokeObjectURL(img.src);
+        try {
+          const predictions = await model.classify(img);
+
+          // Hide spinner, show results
+          loading.classList.add("hidden");
+          results.classList.remove("hidden");
+
+          // Show predictions
+          predList.innerHTML = predictions
+            .map(
+              (p) =>
+                `<li>👉 <span class="font-medium">${p.className}</span> — ${(p.probability * 100).toFixed(2)}%</li>`
+            )
+            .join("");
+        } catch (err) {
+          console.error("Classification error:", err);
+          loading.classList.add("hidden");
+          results.classList.remove("hidden");
+          predList.innerHTML = "<li>Error analyzing image. Please try again.</li>";
+        }
+      };
+    }
+  </script>
+</body>
+</html>
